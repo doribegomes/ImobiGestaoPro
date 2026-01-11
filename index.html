@@ -43,6 +43,11 @@
                 </button>
                 
                 <p class="text-[10px] text-slate-400 mt-8 uppercase font-bold tracking-widest">Acesso Seguro via Firebase Auth</p>
+                
+                <!-- Alerta para erros de Cookies/Popups -->
+                <div v-if="loginError" class="mt-4 p-3 bg-red-50 text-red-600 text-xs rounded-xl font-bold">
+                    {{ loginError }}
+                </div>
             </div>
         </div>
 
@@ -283,6 +288,7 @@
             setup() {
                 const user = ref(null);
                 const authLoading = ref(true);
+                const loginError = ref("");
                 const activeTab = ref('dashboard');
                 const showModal = ref(false);
                 const editingId = ref(null);
@@ -293,19 +299,43 @@
                 const properties = ref([]);
                 const trash = ref([]);
 
-                // CORREÇÃO: Definindo as refs que estavam faltando
                 const formData = ref({ costs: [], basePrice: 0, progress: 0, landId: '', area: 0, topography: 'Plano' });
                 const notification = ref({ show: false, message: '' });
 
                 // Auth Logic
                 onAuthStateChanged(auth, (u) => {
-                    user.value = u;
+                    if (u) {
+                        // FIX: "Limpa" o objeto user para evitar erros de Security Proxy do Vue 3
+                        user.value = {
+                            uid: u.uid,
+                            displayName: u.displayName,
+                            photoURL: u.photoURL,
+                            email: u.email
+                        };
+                        loadData(u.uid);
+                    } else {
+                        user.value = null;
+                    }
                     authLoading.value = false;
-                    if (u) loadData(u.uid);
                     nextTick(() => lucide.createIcons());
                 });
 
-                const loginWithGoogle = () => signInWithPopup(auth, provider);
+                const loginWithGoogle = async () => {
+                    loginError.value = "";
+                    try {
+                        await signInWithPopup(auth, provider);
+                    } catch (error) {
+                        console.error("Login error:", error);
+                        if (error.code === 'auth/popup-blocked') {
+                            loginError.value = "O popup de login foi bloqueado pelo seu navegador. Por favor, permita popups para este site.";
+                        } else if (error.code === 'auth/network-request-failed') {
+                            loginError.value = "Erro de rede. Verifique sua conexão ou se há extensões (adblock) bloqueando o Firebase.";
+                        } else {
+                            loginError.value = "Erro ao entrar com Google: " + error.message;
+                        }
+                    }
+                };
+                
                 const logout = () => signOut(auth);
 
                 // Firestore Sync
@@ -319,6 +349,8 @@
                             if (colName === 'constructions') constructions.value = data;
                             if (colName === 'properties') properties.value = data;
                             if (colName === 'trash') trash.value = data;
+                        }, (err) => {
+                            console.error("Firestore Listen Error:", err);
                         });
                     });
                 };
@@ -382,13 +414,21 @@
                     showModal.value = true;
                 };
                 const closeModal = () => showModal.value = false;
-                const addCostItem = () => formData.value.costs.push({ description: '', value: 0 });
+                const addCostItem = () => {
+                    if (!formData.value.costs) formData.value.costs = [];
+                    formData.value.costs.push({ description: '', value: 0 });
+                };
                 const removeCostItem = (index) => formData.value.costs.splice(index, 1);
 
                 const saveData = async () => {
-                    await saveDataToFirestore(formData.value, activeTab.value);
-                    showNotify('Salvo na nuvem!');
-                    closeModal();
+                    try {
+                        await saveDataToFirestore(formData.value, activeTab.value);
+                        showNotify('Salvo na nuvem!');
+                        closeModal();
+                    } catch (e) {
+                        console.error("Save Error:", e);
+                        showNotify('Erro ao salvar no Firestore. Verifique as regras de segurança.');
+                    }
                 };
 
                 const editItem = (item) => {
@@ -453,7 +493,7 @@
                 watch([activeTab, showModal, lands, constructions, properties, trash, user], () => nextTick(() => lucide.createIcons()), { deep: true });
 
                 return {
-                    user, authLoading, activeTab, activeTabLabel, showModal, formData, searchTerm, filteredList, totals, lands, trash, notification,
+                    user, authLoading, loginError, activeTab, activeTabLabel, showModal, formData, searchTerm, filteredList, totals, lands, trash, notification,
                     loginWithGoogle, logout, openCreateModal, closeModal, addCostItem, removeCostItem, saveData, editItem, 
                     moveToTrash, restoreFromTrash, permanentDelete, convertToProperty, undoConversion,
                     formatCurrency, calculateTotalItemCost, calculateCostPerM2, isDelayed, getLinkedConstruction, getTagName, exportToPDF
