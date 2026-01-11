@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ImobiGestão Pro - PWA</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Vue.js 3 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- html2pdf -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#2563eb">
+    
+    <style>
+        [v-cloak] { display: none; }
+        .app-bg-light { background-color: #f0f9ff; }
+        input, select, textarea { @apply w-full p-2 border border-slate-300 rounded mt-1 bg-white text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none; }
+        label { @apply text-sm font-bold text-slate-700 mt-2 block; }
+        .card-shadow { shadow-sm hover:shadow-xl transition-shadow duration-300; }
+        .login-gradient { background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%); }
+    </style>
+</head>
+<body class="bg-blue-50 text-slate-900">
+    <div id="app" v-cloak class="min-h-screen">
+        
+        <!-- Tela de Login -->
+        <div v-if="!user && !authLoading" class="min-h-screen login-gradient flex items-center justify-center p-4">
+            <div class="bg-white p-8 rounded-3xl shadow-2xl max-w-md w-full text-center">
+                <div class="bg-blue-100 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                    <i data-lucide="building-2" class="w-10 h-10 text-blue-600"></i>
+                </div>
+                <h1 class="text-3xl font-black text-slate-900 mb-2">ImobiGestão Pro</h1>
+                <p class="text-slate-500 mb-8 font-medium">Sua plataforma estratégica de gestão imobiliária e construção.</p>
+                
+                <button @click="loginWithGoogle" class="w-full flex items-center justify-center gap-3 bg-white border border-slate-300 p-4 rounded-2xl font-bold text-slate-700 hover:bg-slate-50 transition shadow-sm active:scale-95">
+                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/action/google.svg" class="w-6 h-6">
+                    Entrar com Google
+                </button>
+                
+                <p class="text-[10px] text-slate-400 mt-8 uppercase font-bold tracking-widest">Acesso Seguro via Firebase Auth</p>
+            </div>
+        </div>
+
+        <!-- Loader Inicial -->
+        <div v-if="authLoading" class="min-h-screen flex items-center justify-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
+        </div>
+
+        <!-- Conteúdo do App -->
+        <div v-if="user" class="min-h-screen flex flex-col md:flex-row">
+            
+            <!-- Sidebar -->
+            <nav class="md:w-64 bg-white border-r border-blue-100 flex flex-col fixed md:relative bottom-0 w-full md:h-full z-50 shadow-lg">
+                <div class="hidden md:flex p-6 border-b border-blue-50 flex-col">
+                    <h1 class="text-xl font-bold text-blue-600">ImobiGestão <span class="text-slate-800">Pro</span></h1>
+                    <div class="mt-4 flex items-center gap-2">
+                        <img :src="user.photoURL" class="w-8 h-8 rounded-full border border-blue-200">
+                        <div class="overflow-hidden">
+                            <p class="text-[10px] font-black truncate text-slate-900 uppercase">{{ user.displayName }}</p>
+                            <button @click="logout" class="text-[10px] text-red-500 font-bold hover:underline">SAIR DO APP</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex flex-row md:flex-col justify-around md:justify-start p-2 md:p-4 overflow-y-auto">
+                    <button @click="activeTab = 'dashboard'" :class="{'bg-blue-600 text-white shadow-md': activeTab === 'dashboard', 'text-slate-600 hover:bg-blue-50': activeTab !== 'dashboard'}" class="flex flex-col md:flex-row items-center p-3 rounded-xl transition-all duration-200">
+                        <i data-lucide="layout-dashboard" class="w-6 h-6 md:mr-3"></i>
+                        <span class="text-xs md:text-base mt-1 md:mt-0 font-medium">Painel</span>
+                    </button>
+                    <button @click="activeTab = 'lands'" :class="{'bg-blue-600 text-white shadow-md': activeTab === 'lands', 'text-slate-600 hover:bg-blue-50': activeTab !== 'lands'}" class="flex flex-col md:flex-row items-center p-3 rounded-xl transition-all duration-200">
+                        <i data-lucide="map" class="w-6 h-6 md:mr-3"></i>
+                        <span class="text-xs md:text-base mt-1 md:mt-0 font-medium">Terrenos</span>
+                    </button>
+                    <button @click="activeTab = 'constructions'" :class="{'bg-blue-600 text-white shadow-md': activeTab === 'constructions', 'text-slate-600 hover:bg-blue-50': activeTab !== 'constructions'}" class="flex flex-col md:flex-row items-center p-3 rounded-xl transition-all duration-200">
+                        <i data-lucide="hard-hat" class="w-6 h-6 md:mr-3"></i>
+                        <span class="text-xs md:text-base mt-1 md:mt-0 font-medium">Obras</span>
+                    </button>
+                    <button @click="activeTab = 'properties'" :class="{'bg-blue-600 text-white shadow-md': activeTab === 'properties', 'text-slate-600 hover:bg-blue-50': activeTab !== 'properties'}" class="flex flex-col md:flex-row items-center p-3 rounded-xl transition-all duration-200">
+                        <i data-lucide="home" class="w-6 h-6 md:mr-3"></i>
+                        <span class="text-xs md:text-base mt-1 md:mt-0 font-medium">Imóveis</span>
+                    </button>
+                    <button @click="activeTab = 'trash'" :class="{'bg-red-600 text-white shadow-md': activeTab === 'trash', 'text-red-500 hover:bg-red-50': activeTab !== 'trash'}" class="flex flex-col md:flex-row items-center p-3 rounded-xl transition-all duration-200 md:mt-auto">
+                        <i data-lucide="trash-2" class="w-6 h-6 md:mr-3"></i>
+                        <span class="text-xs md:text-base mt-1 md:mt-0 font-medium">Lixeira</span>
+                    </button>
+                </div>
+            </nav>
+
+            <!-- Conteúdo Principal -->
+            <main class="flex-1 p-4 md:p-8 mb-20 md:mb-0 overflow-y-auto">
+                <header class="flex flex-col md:flex-row md:items-center justify-between mb-8 border-b border-blue-200 pb-4 gap-4">
+                    <div>
+                        <h2 class="text-3xl font-black text-slate-900 uppercase tracking-tight">{{ activeTabLabel }}</h2>
+                        <p class="text-blue-600 font-bold">Base de Dados Cloud</p>
+                    </div>
+
+                    <div v-if="activeTab !== 'dashboard'" class="flex flex-1 max-w-md mx-4">
+                        <div class="relative w-full">
+                            <input v-model="searchTerm" placeholder="Buscar registros..." class="pl-10 pr-4 py-2 bg-white border-blue-200 rounded-2xl shadow-sm w-full">
+                            <i data-lucide="search" class="w-5 h-5 absolute left-3 top-2.5 text-slate-400"></i>
+                        </div>
+                    </div>
+
+                    <div v-if="activeTab !== 'dashboard' && activeTab !== 'trash'">
+                        <button @click="openCreateModal" class="bg-blue-600 text-white px-6 py-3 rounded-xl flex items-center shadow-xl hover:bg-blue-700 transition transform hover:scale-105 active:scale-95 whitespace-nowrap">
+                            <i data-lucide="plus-circle" class="w-5 h-5 mr-2"></i> Adicionar
+                        </button>
+                    </div>
+                </header>
+
+                <!-- Dashboard -->
+                <div v-if="activeTab === 'dashboard'" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border-l-8 border-blue-600">
+                        <p class="text-slate-500 text-xs font-black uppercase tracking-widest">Investimento Total</p>
+                        <h3 class="text-2xl font-black text-slate-900 mt-1">{{ formatCurrency(totals.investment) }}</h3>
+                    </div>
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border-l-8 border-emerald-500">
+                        <p class="text-slate-500 text-xs font-black uppercase tracking-widest">Patrimônio Atual</p>
+                        <h3 class="text-2xl font-black text-emerald-600 mt-1">{{ formatCurrency(totals.salesValue) }}</h3>
+                    </div>
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border-l-8 border-indigo-600">
+                        <p class="text-slate-500 text-xs font-black uppercase tracking-widest">Lucro Projetado</p>
+                        <h3 class="text-2xl font-black text-indigo-700 mt-1">{{ formatCurrency(totals.profit) }}</h3>
+                    </div>
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border-l-8 border-orange-500">
+                        <p class="text-slate-500 text-xs font-black uppercase tracking-widest">ROI Estimado</p>
+                        <h3 class="text-2xl font-black text-orange-600 mt-1">{{ totals.roi }}%</h3>
+                    </div>
+                </div>
+
+                <!-- Listas -->
+                <div v-else class="space-y-4">
+                    <div v-for="item in filteredList" :key="item.id" class="bg-white p-5 md:p-6 rounded-2xl shadow-md border border-white flex flex-col md:flex-row md:items-center justify-between gap-4 card-shadow">
+                        <div class="flex-1">
+                            <div class="flex flex-wrap items-center gap-2 mb-2">
+                                <span class="bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded-full font-black uppercase">{{ getTagName(activeTab === 'trash' ? item.originalTab : activeTab) }}</span>
+                                <span v-if="item.finAmount > 0" class="bg-indigo-100 text-indigo-700 text-[10px] px-2 py-0.5 rounded-full font-black uppercase">Financiado</span>
+                                <span v-if="activeTab === 'lands' && getLinkedConstruction(item.id)" class="bg-orange-500 text-white text-[10px] px-2 py-0.5 rounded-full font-black uppercase">Em Obra</span>
+                                <span v-if="isDelayed(item)" class="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full font-black uppercase">Atrasado</span>
+                            </div>
+                            <h4 class="text-xl font-bold text-slate-900">{{ item.title || item.address }}</h4>
+                            <div class="flex items-center text-sm text-slate-500 mt-1 gap-4">
+                                <span v-if="item.contractor" class="flex items-center"><i data-lucide="user" class="w-4 h-4 mr-1"></i> {{ item.contractor }}</span>
+                                <a v-if="item.docLink" :href="item.docLink" target="_blank" class="text-blue-600 font-bold"><i data-lucide="external-link" class="w-4 h-4 mr-1 inline"></i>Docs</a>
+                            </div>
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-5">
+                                <div class="bg-slate-50 p-2 rounded-lg"><span class="block text-[10px] font-black text-slate-400">INVESTIMENTO</span><span class="font-bold text-blue-600">{{ formatCurrency(calculateTotalItemCost(item)) }}</span></div>
+                                <div class="bg-slate-50 p-2 rounded-lg"><span class="block text-[10px] font-black text-slate-400">ÁREA / CUSTO M²</span><span class="font-bold">{{ item.area || 0 }}m² | {{ formatCurrency(calculateCostPerM2(item)) }}</span></div>
+                                <div class="bg-slate-50 p-2 rounded-lg"><span class="block text-[10px] font-black text-slate-400">REGISTROS</span><span class="font-bold">{{ item.costs?.length || 0 }}</span></div>
+                                <div class="bg-slate-50 p-2 rounded-lg"><span class="block text-[10px] font-black text-slate-400">STATUS</span><span class="font-bold text-blue-500">{{ item.status || (item.progress !== undefined ? item.progress + '%' : 'Ativo') }}</span></div>
+                            </div>
+                        </div>
+                        <div class="flex md:flex-col space-x-2 md:space-x-0 md:space-y-2">
+                            <div class="flex space-x-2">
+                                <template v-if="activeTab !== 'trash'">
+                                    <button @click="exportToPDF(item)" class="p-2.5 bg-blue-50 text-blue-600 rounded-xl"><i data-lucide="download" class="w-5 h-5"></i></button>
+                                    <button @click="editItem(item)" class="p-2.5 bg-slate-50 text-slate-600 rounded-xl"><i data-lucide="settings" class="w-5 h-5"></i></button>
+                                    <button @click="moveToTrash(item, activeTab)" class="p-2.5 bg-red-50 text-red-600 rounded-xl"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+                                </template>
+                                <template v-else>
+                                    <button @click="restoreFromTrash(item)" class="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl"><i data-lucide="refresh-cw" class="w-5 h-5"></i></button>
+                                    <button @click="permanentDelete(item.id)" class="p-2.5 bg-red-600 text-white rounded-xl"><i data-lucide="x-circle" class="w-5 h-5"></i></button>
+                                </template>
+                            </div>
+                            <button v-if="activeTab === 'constructions'" @click="convertToProperty(item)" class="py-2 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase">Finalizar Obra</button>
+                            <button v-if="activeTab === 'properties' && item.originalObraData" @click="undoConversion(item)" class="py-2 bg-amber-500 text-white rounded-xl text-xs font-black uppercase text-center">Desfazer</button>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <!-- Modal -->
+        <div v-if="showModal" class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+            <div class="bg-white w-full max-w-5xl rounded-3xl shadow-2xl p-6 my-8">
+                <div class="flex justify-between items-center mb-6 border-b pb-4">
+                    <h3 class="text-2xl font-black text-slate-900">Gerenciar {{ activeTabLabel }}</h3>
+                    <button @click="closeModal" class="p-2 hover:bg-slate-100 rounded-full transition"><i data-lucide="x" class="w-6 h-6"></i></button>
+                </div>
+
+                <form @submit.prevent="saveData" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2 space-y-6">
+                        <div v-if="activeTab === 'lands'" class="space-y-4">
+                            <div><label>Endereço Completo</label><input v-model="formData.address" required></div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div><label>Valor Compra (R$)</label><input type="number" step="0.01" v-model.number="formData.basePrice" required></div>
+                                <div><label>Área (m²)</label><input type="number" v-model.number="formData.area"></div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div><label>Vendedor</label><input v-model="formData.contractor"></div>
+                                <div><label>Telefone</label><input v-model="formData.contactPhone"></div>
+                            </div>
+                            <div><label>Docs (Link)</label><input v-model="formData.docLink"></div>
+                        </div>
+
+                        <div v-if="activeTab === 'constructions'" class="space-y-6">
+                            <div class="md:col-span-2">
+                                <label>Vincular Terreno</label>
+                                <select v-model="formData.landId" required>
+                                    <option v-for="l in lands" :key="l.id" :value="l.id">{{ l.address }}</option>
+                                </select>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div><label>Responsável</label><input v-model="formData.contractor" required></div>
+                                <div><label>Valor Contrato Base (R$)</label><input type="number" v-model.number="formData.basePrice" required></div>
+                                <div><label>Início</label><input type="date" v-model="formData.startDate"></div>
+                                <div><label>Fim</label><input type="date" v-model="formData.endDate"></div>
+                            </div>
+                            <div><label>Progresso</label><input type="range" v-model.number="formData.progress" min="0" max="100"><p class="text-right text-xs font-bold">{{ formData.progress }}%</p></div>
+                        </div>
+
+                        <div v-if="activeTab === 'properties'" class="space-y-4">
+                            <div><label>Título</label><input v-model="formData.title" required></div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div><label>Investimento Base (R$)</label><input type="number" v-model.number="formData.basePrice" required></div>
+                                <div><label>Área (m²)</label><input type="number" v-model.number="formData.area"></div>
+                                <div><label>Venda Estimada (R$)</label><input type="number" v-model.number="formData.estimatedSaleValue"></div>
+                            </div>
+                        </div>
+                        <div><label>Notas</label><textarea v-model="formData.notes"></textarea></div>
+                    </div>
+
+                    <div class="bg-blue-50 p-5 rounded-2xl flex flex-col h-full">
+                        <div class="flex justify-between items-center mb-4">
+                            <h4 class="font-black text-blue-900 text-sm">CUSTOS EXTRAS</h4>
+                            <button type="button" @click="addCostItem" class="text-[10px] bg-blue-600 text-white px-2 py-1 rounded">+ ADICIONAR</button>
+                        </div>
+                        <div class="flex-1 space-y-3 overflow-y-auto max-h-[400px]">
+                            <div v-for="(cost, index) in formData.costs" :key="index" class="flex gap-2 items-center bg-white p-2 rounded-xl">
+                                <input v-model="cost.description" class="flex-1 !border-none !mt-0 !bg-transparent text-xs" placeholder="Desc.">
+                                <input type="number" v-model.number="cost.value" class="w-20 !border-none !mt-0 !bg-transparent text-xs font-bold text-right">
+                                <button @click="removeCostItem(index)" type="button" class="text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                            </div>
+                        </div>
+                        <div class="mt-4 pt-4 border-t border-blue-200">
+                            <p class="flex justify-between"><strong>TOTAL:</strong> <span>{{ formatCurrency(calculateTotalItemCost(formData)) }}</span></p>
+                        </div>
+                    </div>
+
+                    <div class="lg:col-span-3 pt-4 flex gap-3">
+                        <button type="button" @click="closeModal" class="flex-1 py-4 border-2 rounded-2xl font-bold">CANCELAR</button>
+                        <button type="submit" class="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black">SALVAR</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div v-if="notification.show" class="fixed bottom-10 right-10 bg-slate-900 text-white px-8 py-4 rounded-2xl shadow-2xl z-[100] animate-bounce">
+            {{ notification.message }}
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAOvxWdK11c2yRJtdoXqb-nN4ricPNOq5M",
+            authDomain: "imobigestao-pro.firebaseapp.com",
+            projectId: "imobigestao-pro",
+            storageBucket: "imobigestao-pro.firebasestorage.app",
+            messagingSenderId: "894887927076",
+            appId: "1:894887927076:web:14c3ef75a36b058876e7b1"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const provider = new GoogleAuthProvider();
+        const appId = "imobigestao-pro";
+
+        const { createApp, ref, computed, onMounted, nextTick, watch } = Vue;
+
+        createApp({
+            setup() {
+                const user = ref(null);
+                const authLoading = ref(true);
+                const activeTab = ref('dashboard');
+                const showModal = ref(false);
+                const editingId = ref(null);
+                const searchTerm = ref('');
+                
+                const lands = ref([]);
+                const constructions = ref([]);
+                const properties = ref([]);
+                const trash = ref([]);
+
+                const formData = ref({});
+                const notification = ref({ show: false, message: '' });
+
+                // Auth Logic
+                onAuthStateChanged(auth, (u) => {
+                    user.value = u;
+                    authLoading.value = false;
+                    if (u) loadData(u.uid);
+                    nextTick(() => lucide.createIcons());
+                });
+
+                const loginWithGoogle = () => signInWithPopup(auth, provider);
+                const logout = () => signOut(auth);
+
+                // Firestore Sync
+                const loadData = (uid) => {
+                    const collections = ['lands', 'constructions', 'properties', 'trash'];
+                    collections.forEach(colName => {
+                        const q = collection(db, 'artifacts', appId, 'users', uid, colName);
+                        onSnapshot(q, (snapshot) => {
+                            const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+                            if (colName === 'lands') lands.value = data;
+                            if (colName === 'constructions') constructions.value = data;
+                            if (colName === 'properties') properties.value = data;
+                            if (colName === 'trash') trash.value = data;
+                        }, (err) => console.error(err));
+                    });
+                };
+
+                const saveDataToFirestore = async (item, colName) => {
+                    if (!user.value) return;
+                    const docId = item.id || Date.now().toString();
+                    const docRef = doc(db, 'artifacts', appId, 'users', user.value.uid, colName, docId);
+                    await setDoc(docRef, { ...item, id: docId, lastUpdate: new Date().toLocaleString() });
+                };
+
+                const deleteFromFirestore = async (docId, colName) => {
+                    if (!user.value) return;
+                    const docRef = doc(db, 'artifacts', appId, 'users', user.value.uid, colName, docId);
+                    await deleteDoc(docRef);
+                };
+
+                // Computed and Helpers
+                const activeTabLabel = computed(() => {
+                    const labels = { dashboard: 'Painel Geral', lands: 'Terrenos', constructions: 'Obras', properties: 'Imóveis', trash: 'Lixeira' };
+                    return labels[activeTab.value];
+                });
+
+                const filteredList = computed(() => {
+                    let list = activeTab.value === 'lands' ? lands.value : 
+                               activeTab.value === 'constructions' ? constructions.value : 
+                               activeTab.value === 'properties' ? properties.value : 
+                               activeTab.value === 'trash' ? trash.value : [];
+                    
+                    if (!searchTerm.value) return list;
+                    const term = searchTerm.value.toLowerCase();
+                    return list.filter(i => (i.address?.toLowerCase().includes(term) || i.title?.toLowerCase().includes(term) || i.contractor?.toLowerCase().includes(term)));
+                });
+
+                const calculateTotalItemCost = (item) => {
+                    let total = parseFloat(item.basePrice) || 0;
+                    if (item.costs) total += item.costs.reduce((acc, c) => acc + (parseFloat(c.value) || 0), 0);
+                    return total;
+                };
+
+                const totals = computed(() => {
+                    const landIdsInObras = new Set(constructions.value.map(c => c.landId));
+                    const landInv = lands.value.reduce((acc, i) => landIdsInObras.has(i.id) ? acc : acc + calculateTotalItemCost(i), 0);
+                    const constrInv = constructions.value.reduce((acc, i) => {
+                        const l = lands.value.find(land => land.id === i.landId);
+                        return acc + calculateTotalItemCost(i) + (l ? calculateTotalItemCost(l) : 0);
+                    }, 0);
+                    const propInv = properties.value.reduce((acc, i) => acc + calculateTotalItemCost(i), 0);
+                    const investment = landInv + constrInv + propInv;
+                    const salesValue = properties.value.reduce((acc, i) => acc + (parseFloat(i.estimatedSaleValue) || 0), 0);
+                    const profit = salesValue - investment;
+                    const roi = investment > 0 ? ((profit / investment) * 100).toFixed(1) : 0;
+                    return { investment, salesValue, profit, roi };
+                });
+
+                // UI Actions
+                const openCreateModal = () => {
+                    formData.value = { costs: [], basePrice: 0, progress: 0, landId: '', area: 0, topography: 'Plano' };
+                    editingId.value = null;
+                    showModal.value = true;
+                };
+                const closeModal = () => showModal.value = false;
+                const addCostItem = () => formData.value.costs.push({ description: '', value: 0 });
+                const removeCostItem = (index) => formData.value.costs.splice(index, 1);
+
+                const saveData = async () => {
+                    const colName = activeTab.value;
+                    await saveDataToFirestore(formData.value, colName);
+                    showNotify('Salvo na nuvem!');
+                    closeModal();
+                };
+
+                const editItem = (item) => {
+                    formData.value = JSON.parse(JSON.stringify(item));
+                    editingId.value = item.id;
+                    showModal.value = true;
+                };
+
+                const moveToTrash = async (item, sourceTab) => {
+                    const itemToTrash = { ...item, originalTab: sourceTab };
+                    await saveDataToFirestore(itemToTrash, 'trash');
+                    await deleteFromFirestore(item.id, sourceTab);
+                    showNotify('Movido para lixeira');
+                };
+
+                const restoreFromTrash = async (item) => {
+                    const { originalTab, ...rest } = item;
+                    await saveDataToFirestore(rest, originalTab);
+                    await deleteFromFirestore(item.id, 'trash');
+                    showNotify('Restaurado!');
+                };
+
+                const permanentDelete = async (id) => {
+                    if (confirm('Excluir permanentemente?')) await deleteFromFirestore(id, 'trash');
+                };
+
+                const convertToProperty = async (obra) => {
+                    const cost = calculateTotalItemCost(obra);
+                    const l = lands.value.find(land => land.id === obra.landId);
+                    const total = cost + (l ? calculateTotalItemCost(l) : 0);
+                    const newProp = { title: `Imóvel: ${obra.contractor}`, basePrice: total, costs: [], estimatedSaleValue: total * 1.3, originalObraData: obra };
+                    await saveDataToFirestore(newProp, 'properties');
+                    await deleteFromFirestore(obra.id, 'constructions');
+                    activeTab.value = 'properties';
+                };
+
+                const undoConversion = async (prop) => {
+                    await saveDataToFirestore(prop.originalObraData, 'constructions');
+                    await deleteFromFirestore(prop.id, 'properties');
+                    activeTab.value = 'constructions';
+                };
+
+                const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
+                const calculateCostPerM2 = (item) => {
+                    const total = calculateTotalItemCost(item);
+                    return item.area > 0 ? total / item.area : 0;
+                };
+                const isDelayed = (item) => item.endDate && new Date(item.endDate) < new Date() && item.progress < 100;
+                const showNotify = (m) => {
+                    notification.value = { show: true, message: m };
+                    setTimeout(() => notification.value.show = false, 3000);
+                };
+                const getLinkedConstruction = (id) => constructions.value.find(c => c.landId === id);
+                const getTagName = (t) => ({ lands: 'Terreno', constructions: 'Obra', properties: 'Imóvel' }[t] || t);
+
+                const exportToPDF = (item) => {
+                    const element = document.createElement('div');
+                    element.innerHTML = `<div style="padding:40px"><h1>Relatório: ${item.title || item.address}</h1><p>Investimento: ${formatCurrency(calculateTotalItemCost(item))}</p></div>`;
+                    html2pdf().from(element).save();
+                };
+
+                onMounted(() => lucide.createIcons());
+                watch([activeTab, showModal, lands, constructions, properties, trash, user], () => nextTick(() => lucide.createIcons()), { deep: true });
+
+                return {
+                    user, authLoading, activeTab, activeTabLabel, showModal, formData, searchTerm, filteredList, totals, lands,
+                    loginWithGoogle, logout, openCreateModal, closeModal, addCostItem, removeCostItem, saveData, editItem, 
+                    moveToTrash, restoreFromTrash, permanentDelete, convertToProperty, undoConversion,
+                    formatCurrency, calculateTotalItemCost, calculateCostPerM2, isDelayed, getLinkedConstruction, getTagName, exportToPDF
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
