@@ -59,9 +59,9 @@
                 <div class="hidden md:flex p-6 border-b border-blue-50 flex-col">
                     <h1 class="text-xl font-bold text-blue-600">ImobiGestão <span class="text-slate-800">Pro</span></h1>
                     <div class="mt-4 flex items-center gap-2">
-                        <img :src="user.photoURL" class="w-8 h-8 rounded-full border border-blue-200">
+                        <img :src="user.photoURL" class="w-8 h-8 rounded-full border border-blue-200" v-if="user.photoURL">
                         <div class="overflow-hidden">
-                            <p class="text-[10px] font-black truncate text-slate-900 uppercase">{{ user.displayName }}</p>
+                            <p class="text-[10px] font-black truncate text-slate-900 uppercase">{{ user.displayName || 'Usuário' }}</p>
                             <button @click="logout" class="text-[10px] text-red-500 font-bold hover:underline">SAIR DO APP</button>
                         </div>
                     </div>
@@ -217,9 +217,9 @@
                         <div v-if="activeTab === 'properties'" class="space-y-4">
                             <div><label>Título</label><input v-model="formData.title" required></div>
                             <div class="grid grid-cols-2 gap-4">
-                                <div><label>Investimento Base (R$)</label><input type="number" v-model.number="formData.basePrice" required></div>
+                                <div><label>Investimento Base (R$)</label><input type="number" step="0.01" v-model.number="formData.basePrice" required></div>
                                 <div><label>Área (m²)</label><input type="number" v-model.number="formData.area"></div>
-                                <div><label>Venda Estimada (R$)</label><input type="number" v-model.number="formData.estimatedSaleValue"></div>
+                                <div><label>Venda Estimada (R$)</label><input type="number" step="0.01" v-model.number="formData.estimatedSaleValue"></div>
                             </div>
                         </div>
                         <div><label>Notas</label><textarea v-model="formData.notes"></textarea></div>
@@ -250,7 +250,8 @@
             </div>
         </div>
 
-        <div v-if="notification.show" class="fixed bottom-10 right-10 bg-slate-900 text-white px-8 py-4 rounded-2xl shadow-2xl z-[100] animate-bounce">
+        <!-- Notificação -->
+        <div v-if="notification && notification.show" class="fixed bottom-10 right-10 bg-slate-900 text-white px-8 py-4 rounded-2xl shadow-2xl z-[100] animate-bounce">
             {{ notification.message }}
         </div>
     </div>
@@ -259,7 +260,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAOvxWdK11c2yRJtdoXqb-nN4ricPNOq5M",
@@ -292,7 +293,6 @@
                 const properties = ref([]);
                 const trash = ref([]);
 
-                const formData = ref({});
                 const notification = ref({ show: false, message: '' });
 
                 // Auth Logic
@@ -317,7 +317,7 @@
                             if (colName === 'constructions') constructions.value = data;
                             if (colName === 'properties') properties.value = data;
                             if (colName === 'trash') trash.value = data;
-                        }, (err) => console.error(err));
+                        });
                     });
                 };
 
@@ -334,7 +334,7 @@
                     await deleteDoc(docRef);
                 };
 
-                // Computed and Helpers
+                // Computed
                 const activeTabLabel = computed(() => {
                     const labels = { dashboard: 'Painel Geral', lands: 'Terrenos', constructions: 'Obras', properties: 'Imóveis', trash: 'Lixeira' };
                     return labels[activeTab.value];
@@ -352,6 +352,7 @@
                 });
 
                 const calculateTotalItemCost = (item) => {
+                    if (!item) return 0;
                     let total = parseFloat(item.basePrice) || 0;
                     if (item.costs) total += item.costs.reduce((acc, c) => acc + (parseFloat(c.value) || 0), 0);
                     return total;
@@ -383,8 +384,7 @@
                 const removeCostItem = (index) => formData.value.costs.splice(index, 1);
 
                 const saveData = async () => {
-                    const colName = activeTab.value;
-                    await saveDataToFirestore(formData.value, colName);
+                    await saveDataToFirestore(formData.value, activeTab.value);
                     showNotify('Salvo na nuvem!');
                     closeModal();
                 };
@@ -396,8 +396,7 @@
                 };
 
                 const moveToTrash = async (item, sourceTab) => {
-                    const itemToTrash = { ...item, originalTab: sourceTab };
-                    await saveDataToFirestore(itemToTrash, 'trash');
+                    await saveDataToFirestore({ ...item, originalTab: sourceTab }, 'trash');
                     await deleteFromFirestore(item.id, sourceTab);
                     showNotify('Movido para lixeira');
                 };
@@ -417,7 +416,7 @@
                     const cost = calculateTotalItemCost(obra);
                     const l = lands.value.find(land => land.id === obra.landId);
                     const total = cost + (l ? calculateTotalItemCost(l) : 0);
-                    const newProp = { title: `Imóvel: ${obra.contractor}`, basePrice: total, costs: [], estimatedSaleValue: total * 1.3, originalObraData: obra };
+                    const newProp = { title: `Imóvel: ${obra.contractor}`, basePrice: total, costs: [], estimatedSaleValue: total * 1.3, originalObraData: obra, area: l?.area || 0 };
                     await saveDataToFirestore(newProp, 'properties');
                     await deleteFromFirestore(obra.id, 'constructions');
                     activeTab.value = 'properties';
@@ -452,7 +451,7 @@
                 watch([activeTab, showModal, lands, constructions, properties, trash, user], () => nextTick(() => lucide.createIcons()), { deep: true });
 
                 return {
-                    user, authLoading, activeTab, activeTabLabel, showModal, formData, searchTerm, filteredList, totals, lands,
+                    user, authLoading, activeTab, activeTabLabel, showModal, formData, searchTerm, filteredList, totals, lands, trash, notification,
                     loginWithGoogle, logout, openCreateModal, closeModal, addCostItem, removeCostItem, saveData, editItem, 
                     moveToTrash, restoreFromTrash, permanentDelete, convertToProperty, undoConversion,
                     formatCurrency, calculateTotalItemCost, calculateCostPerM2, isDelayed, getLinkedConstruction, getTagName, exportToPDF
