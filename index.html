@@ -23,7 +23,6 @@
         label { @apply text-sm font-bold text-slate-700 mt-2 block; }
         .card-shadow { shadow-sm hover:shadow-xl transition-shadow duration-300; }
         .login-gradient { background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%); }
-        /* Ajuste para evitar scroll horizontal no mobile */
         .modal-container { max-width: calc(100% - 2rem); }
     </style>
 </head>
@@ -90,6 +89,10 @@
                         <i data-lucide="home" class="w-6 h-6 md:mr-3"></i>
                         <span class="text-[10px] md:text-base mt-1 md:mt-0 font-medium uppercase md:capitalize">Imóveis</span>
                     </button>
+                    <button @click="activeTab = 'sales'" :class="{'bg-emerald-600 text-white shadow-md': activeTab === 'sales', 'text-emerald-600 hover:bg-emerald-50': activeTab !== 'sales'}" class="flex flex-col md:flex-row items-center p-3 rounded-xl transition-all duration-200">
+                        <i data-lucide="badge-check" class="w-6 h-6 md:mr-3"></i>
+                        <span class="text-[10px] md:text-base mt-1 md:mt-0 font-medium uppercase md:capitalize">Vendas</span>
+                    </button>
                     <button @click="activeTab = 'trash'" :class="{'bg-red-600 text-white shadow-md': activeTab === 'trash', 'text-red-500 hover:bg-red-50': activeTab !== 'trash'}" class="flex flex-col md:flex-row items-center p-3 rounded-xl transition-all duration-200 md:mt-auto">
                         <i data-lucide="trash-2" class="w-6 h-6 md:mr-3"></i>
                         <span class="text-[10px] md:text-base mt-1 md:mt-0 font-medium uppercase md:capitalize">Lixeira</span>
@@ -112,7 +115,7 @@
                         </div>
                     </div>
 
-                    <div v-if="activeTab !== 'dashboard' && activeTab !== 'trash'">
+                    <div v-if="activeTab !== 'dashboard' && activeTab !== 'trash' && activeTab !== 'sales'">
                         <button @click="openCreateModal" class="w-full md:w-auto bg-blue-600 text-white px-6 py-3 rounded-xl flex items-center justify-center shadow-xl hover:bg-blue-700 transition transform hover:scale-105 active:scale-95 whitespace-nowrap">
                             <i data-lucide="plus-circle" class="w-5 h-5 mr-2"></i> Adicionar
                         </button>
@@ -122,20 +125,24 @@
                 <!-- Dashboard -->
                 <div v-if="activeTab === 'dashboard'" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     <div class="bg-white p-6 rounded-2xl shadow-sm border-l-8 border-blue-600">
-                        <p class="text-slate-500 text-xs font-black uppercase tracking-widest">Investimento Total</p>
+                        <p class="text-slate-500 text-xs font-black uppercase tracking-widest">Investimento Ativo</p>
                         <h3 class="text-2xl font-black text-slate-900 mt-1">{{ formatCurrency(totals.investment) }}</h3>
+                        <p class="text-[10px] text-slate-400 mt-2 font-bold uppercase">Patrimônio Disponível</p>
                     </div>
                     <div class="bg-white p-6 rounded-2xl shadow-sm border-l-8 border-emerald-500">
-                        <p class="text-slate-500 text-xs font-black uppercase tracking-widest">Patrimônio Atual</p>
-                        <h3 class="text-2xl font-black text-emerald-600 mt-1">{{ formatCurrency(totals.salesValue) }}</h3>
+                        <p class="text-slate-500 text-xs font-black uppercase tracking-widest">Vendas Realizadas</p>
+                        <h3 class="text-2xl font-black text-emerald-600 mt-1">{{ formatCurrency(totals.realizedSales) }}</h3>
+                        <p class="text-[10px] text-slate-400 mt-2 font-bold uppercase">{{ sales.length }} Transações Efetuadas</p>
                     </div>
                     <div class="bg-white p-6 rounded-2xl shadow-sm border-l-8 border-indigo-600">
-                        <p class="text-slate-500 text-xs font-black uppercase tracking-widest">Lucro Projetado</p>
-                        <h3 class="text-2xl font-black text-indigo-700 mt-1">{{ formatCurrency(totals.profit) }}</h3>
+                        <p class="text-slate-500 text-xs font-black uppercase tracking-widest">Lucro Líquido Real</p>
+                        <h3 class="text-2xl font-black text-indigo-700 mt-1">{{ formatCurrency(totals.realizedProfit) }}</h3>
+                        <p class="text-[10px] text-slate-400 mt-2 font-bold uppercase">Resultado Realizado</p>
                     </div>
                     <div class="bg-white p-6 rounded-2xl shadow-sm border-l-8 border-orange-500">
-                        <p class="text-slate-500 text-xs font-black uppercase tracking-widest">ROI Estimado</p>
-                        <h3 class="text-2xl font-black text-orange-600 mt-1">{{ totals.roi }}%</h3>
+                        <p class="text-slate-500 text-xs font-black uppercase tracking-widest">Patrimônio Estimado</p>
+                        <h3 class="text-2xl font-black text-orange-600 mt-1">{{ formatCurrency(totals.salesValue) }}</h3>
+                        <p class="text-[10px] text-slate-400 mt-2 font-bold uppercase">Projeção de Mercado</p>
                     </div>
                 </div>
 
@@ -144,44 +151,76 @@
                     <div v-for="item in filteredList" :key="item.id" class="bg-white p-5 md:p-6 rounded-2xl shadow-md border border-white flex flex-col md:flex-row md:items-center justify-between gap-4 card-shadow">
                         <div class="flex-1">
                             <div class="flex flex-wrap items-center gap-2 mb-2">
-                                <span class="bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded-full font-black uppercase">{{ getTagName(activeTab === 'trash' ? item.originalTab : activeTab) }}</span>
+                                <span :class="{'bg-emerald-600': activeTab === 'sales' || item.originalTab === 'sales', 'bg-blue-600': activeTab !== 'sales'}" class="text-white text-[10px] px-2 py-0.5 rounded-full font-black uppercase">
+                                    {{ getTagName(activeTab === 'trash' ? item.originalTab : activeTab) }}
+                                </span>
                                 <span v-if="item.finAmount > 0" class="bg-indigo-600 text-white text-[10px] px-2 py-0.5 rounded-full font-black uppercase">Financiado</span>
                                 <span v-if="activeTab === 'lands' && getLinkedConstruction(item.id)" class="bg-orange-500 text-white text-[10px] px-2 py-0.5 rounded-full font-black uppercase">Em Obra</span>
                                 <span v-if="isDelayed(item)" class="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full font-black uppercase">Atrasado</span>
                             </div>
                             <h4 class="text-xl font-bold text-slate-900">{{ item.title || item.address }}</h4>
+                            
+                            <!-- Informações de Venda (Se for item vendido) -->
+                            <div v-if="activeTab === 'sales'" class="mt-2 p-3 bg-emerald-50 rounded-xl border border-emerald-100 grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div><p class="text-[10px] font-black text-emerald-600 uppercase">Comprador</p><p class="text-sm font-bold text-slate-700">{{ item.buyerName }}</p></div>
+                                <div><p class="text-[10px] font-black text-emerald-600 uppercase">Valor Venda</p><p class="text-sm font-bold text-slate-900">{{ formatCurrency(item.salePrice) }}</p></div>
+                                <div><p class="text-[10px] font-black text-emerald-600 uppercase">Data Venda</p><p class="text-sm font-bold text-slate-700">{{ formatDate(item.saleDate) }}</p></div>
+                            </div>
+
                             <div class="flex items-center text-sm text-slate-500 mt-1 gap-4">
                                 <span v-if="item.contractor" class="flex items-center"><i data-lucide="user" class="w-4 h-4 mr-1"></i> {{ item.contractor }}</span>
                                 <a v-if="item.docLink" :href="item.docLink" target="_blank" class="text-blue-600 font-bold"><i data-lucide="external-link" class="w-4 h-4 mr-1 inline"></i>Docs</a>
                             </div>
+
                             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-5">
                                 <div class="bg-slate-50 p-2 rounded-lg"><span class="block text-[10px] font-black text-slate-400 uppercase">Investimento</span><span class="font-bold text-blue-600">{{ formatCurrency(calculateTotalItemCost(item)) }}</span></div>
-                                <div class="bg-slate-50 p-2 rounded-lg"><span class="block text-[10px] font-black text-slate-400 uppercase">Custo M²</span><span class="font-bold">{{ formatCurrency(calculateCostPerM2(item)) }}</span></div>
+                                <div class="bg-slate-50 p-2 rounded-lg">
+                                    <span class="block text-[10px] font-black text-slate-400 uppercase">Resultado</span>
+                                    <span :class="activeTab === 'sales' ? 'text-emerald-600' : 'text-slate-700'" class="font-bold">
+                                        {{ activeTab === 'sales' ? formatCurrency(item.salePrice - calculateTotalItemCost(item)) : formatCurrency(calculateCostPerM2(item)) + '/m²' }}
+                                    </span>
+                                </div>
                                 <div class="bg-slate-50 p-2 rounded-lg"><span class="block text-[10px] font-black text-slate-400 uppercase">Área</span><span class="font-bold">{{ item.area || 0 }}m²</span></div>
                                 <div class="bg-slate-50 p-2 rounded-lg"><span class="block text-[10px] font-black text-slate-400 uppercase">Status</span><span class="font-bold text-blue-500">{{ item.status || (item.progress !== undefined ? item.progress + '%' : 'Ativo') }}</span></div>
                             </div>
                         </div>
                         <div class="flex md:flex-col space-x-2 md:space-x-0 md:space-y-2">
                             <div class="flex space-x-2">
-                                <template v-if="activeTab !== 'trash'">
-                                    <button @click="exportToPDF(item)" class="p-2.5 bg-blue-50 text-blue-600 rounded-xl"><i data-lucide="download" class="w-5 h-5"></i></button>
-                                    <button @click="editItem(item)" class="p-2.5 bg-slate-50 text-slate-600 rounded-xl"><i data-lucide="settings" class="w-5 h-5"></i></button>
-                                    <button @click="moveToTrash(item, activeTab)" class="p-2.5 bg-red-50 text-red-600 rounded-xl"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+                                <template v-if="activeTab !== 'trash' && activeTab !== 'sales'">
+                                    <button @click="exportToPDF(item)" class="p-2.5 bg-blue-50 text-blue-600 rounded-xl" title="Relatório"><i data-lucide="download" class="w-5 h-5"></i></button>
+                                    <button @click="editItem(item)" class="p-2.5 bg-slate-50 text-slate-600 rounded-xl" title="Editar"><i data-lucide="settings" class="w-5 h-5"></i></button>
+                                    <button @click="moveToTrash(item, activeTab)" class="p-2.5 bg-red-50 text-red-600 rounded-xl" title="Excluir"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+                                </template>
+                                <template v-else-if="activeTab === 'sales'">
+                                    <button @click="undoSale(item)" class="p-2.5 bg-amber-50 text-amber-600 rounded-xl" title="Desfazer Venda"><i data-lucide="rotate-ccw" class="w-5 h-5"></i></button>
+                                    <button @click="exportToPDF(item)" class="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl" title="Relatório de Venda"><i data-lucide="file-check" class="w-5 h-5"></i></button>
                                 </template>
                                 <template v-else>
                                     <button @click="restoreFromTrash(item)" class="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl"><i data-lucide="refresh-cw" class="w-5 h-5"></i></button>
                                     <button @click="permanentDelete(item.id)" class="p-2.5 bg-red-600 text-white rounded-xl"><i data-lucide="x-circle" class="w-5 h-5"></i></button>
                                 </template>
                             </div>
-                            <button v-if="activeTab === 'constructions'" @click="convertToProperty(item)" class="py-2 px-3 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase">Finalizar Obra</button>
-                            <button v-if="activeTab === 'properties' && item.originalObraData" @click="undoConversion(item)" class="py-2 px-3 bg-amber-500 text-white rounded-xl text-[10px] font-black uppercase text-center">Desfazer</button>
+                            
+                            <!-- Ações para Terrenos -->
+                            <button v-if="activeTab === 'lands'" @click="openSellModal(item)" class="py-2 px-3 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase flex items-center justify-center shadow-md">
+                                <i data-lucide="dollar-sign" class="w-3 h-3 mr-1"></i> Vender Terreno
+                            </button>
+
+                            <!-- Ações para Obras -->
+                            <button v-if="activeTab === 'constructions'" @click="convertToProperty(item)" class="py-2 px-3 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase shadow-md">Finalizar Obra</button>
+                            
+                            <!-- Ações para Imóveis -->
+                            <button v-if="activeTab === 'properties'" @click="openSellModal(item)" class="py-2 px-3 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase flex items-center justify-center shadow-md">
+                                <i data-lucide="dollar-sign" class="w-3 h-3 mr-1"></i> Vender Imóvel
+                            </button>
+                            <button v-if="activeTab === 'properties' && item.originalObraData" @click="undoConversion(item)" class="py-2 px-3 bg-amber-500 text-white rounded-xl text-[10px] font-black uppercase text-center shadow-md">Desfazer Obra</button>
                         </div>
                     </div>
                 </div>
             </main>
         </div>
 
-        <!-- Modal (Ajustado Mobile) -->
+        <!-- Modal Principal (Cadastro/Edição) -->
         <div v-if="showModal" class="fixed inset-0 z-[60] flex items-center justify-center p-2 md:p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
             <div class="bg-white w-full max-w-5xl rounded-3xl shadow-2xl p-4 md:p-6 my-4 md:my-8 modal-container">
                 <div class="flex justify-between items-center mb-6 border-b pb-4">
@@ -191,8 +230,6 @@
 
                 <form @submit.prevent="saveData" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div class="lg:col-span-2 space-y-6">
-                        
-                        <!-- TERRENOS -->
                         <div v-if="activeTab === 'lands'" class="space-y-4">
                             <div><label>Endereço Completo</label><input v-model="formData.address" required></div>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -206,7 +243,6 @@
                             <div><label>Link Documentos</label><input v-model="formData.docLink"></div>
                         </div>
 
-                        <!-- OBRAS -->
                         <div v-if="activeTab === 'constructions'" class="space-y-6">
                             <div>
                                 <label>Vincular Terreno</label>
@@ -223,24 +259,8 @@
                                 <div><label>Início</label><input type="date" v-model="formData.startDate"></div>
                                 <div><label>Previsão Término</label><input type="date" v-model="formData.endDate"></div>
                             </div>
-
-                            <!-- RESTAURADO: Seção de Financiamento -->
-                            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                                <h4 class="text-xs font-black text-slate-500 uppercase tracking-widest mb-3 flex items-center">
-                                    <i data-lucide="landmark" class="w-4 h-4 mr-2"></i> Financiamento da Obra
-                                </h4>
-                                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                    <div class="col-span-2 md:col-span-1"><label>Banco</label><input v-model="formData.finBank"></div>
-                                    <div class="col-span-2 md:col-span-1"><label>Valor (R$)</label><input type="number" step="0.01" v-model.number="formData.finAmount"></div>
-                                    <div><label>Juros % (a.a)</label><input type="number" step="0.01" v-model.number="formData.finRate"></div>
-                                    <div><label>Prazo (meses)</label><input type="number" v-model.number="formData.finTerms"></div>
-                                </div>
-                            </div>
-                            
-                            <div><label>Link Projeto / Docs</label><input v-model="formData.docLink"></div>
                         </div>
 
-                        <!-- IMÓVEIS -->
                         <div v-if="activeTab === 'properties'" class="space-y-4">
                             <div><label>Título do Imóvel</label><input v-model="formData.title" required></div>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -249,37 +269,73 @@
                                 <div><label>Venda Estimada (R$)</label><input type="number" step="0.01" v-model.number="formData.estimatedSaleValue"></div>
                                 <div><label>Corretor Responsável</label><input v-model="formData.contractor"></div>
                             </div>
-                            <div><label>Link Anúncio / Docs</label><input v-model="formData.docLink"></div>
                         </div>
-                        
                         <div><label>Observações</label><textarea v-model="formData.notes" rows="2"></textarea></div>
                     </div>
 
-                    <!-- Lado Direito: Custos Extras -->
                     <div class="bg-blue-50 p-4 md:p-5 rounded-2xl flex flex-col h-full border border-blue-100">
                         <div class="flex justify-between items-center mb-4">
                             <h4 class="font-black text-blue-900 text-sm uppercase tracking-wider">Custos Extras</h4>
                             <button type="button" @click="addCostItem" class="text-[10px] bg-blue-600 text-white px-2 py-1 rounded font-bold">+ ADICIONAR</button>
                         </div>
                         <div class="flex-1 space-y-3 overflow-y-auto max-h-[300px] lg:max-h-[500px] pr-1">
-                            <div v-for="(cost, index) in formData.costs" :key="index" class="flex gap-2 items-center bg-white p-2 rounded-xl border border-blue-100 shadow-sm">
+                            <div v-for="(cost, index) in formData.costs" :key="index" class="flex gap-2 items-center bg-white p-2 rounded-xl">
                                 <input v-model="cost.description" class="flex-1 !border-none !mt-0 !bg-transparent text-xs" placeholder="Desc.">
                                 <input type="number" v-model.number="cost.value" class="w-16 md:w-20 !border-none !mt-0 !bg-transparent text-xs font-bold text-right text-blue-600">
                                 <button @click="removeCostItem(index)" type="button" class="text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                             </div>
-                            <div v-if="!formData.costs || formData.costs.length === 0" class="text-center py-8 text-slate-400 text-xs italic">
-                                Nenhum custo extra lançado.
-                            </div>
                         </div>
                         <div class="mt-4 pt-4 border-t border-blue-200">
-                            <p class="flex justify-between text-slate-500 text-xs font-bold uppercase"><span>Subtotal:</span> <span>{{ formatCurrency(calculateTotalItemCost(formData)) }}</span></p>
-                            <p class="flex justify-between text-blue-800 text-sm font-black mt-1 uppercase"><span>Custo m²:</span> <span>{{ formatCurrency(calculateCostPerM2(formData)) }}</span></p>
+                            <p class="flex justify-between text-blue-800 text-sm font-black uppercase"><span>TOTAL:</span> <span>{{ formatCurrency(calculateTotalItemCost(formData)) }}</span></p>
                         </div>
                     </div>
 
                     <div class="lg:col-span-3 pt-4 flex gap-3">
-                        <button type="button" @click="closeModal" class="flex-1 py-4 border-2 border-slate-200 rounded-2xl font-bold text-slate-500 hover:bg-slate-50">CANCELAR</button>
-                        <button type="submit" class="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black shadow-lg hover:bg-blue-700 active:scale-95 transition">SALVAR ALTERAÇÕES</button>
+                        <button type="button" @click="closeModal" class="flex-1 py-4 border-2 border-slate-200 rounded-2xl font-bold">CANCELAR</button>
+                        <button type="submit" class="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black">SALVAR</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Modal de Vender -->
+        <div v-if="showSellModal" class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+            <div class="bg-white w-full max-w-2xl rounded-3xl shadow-2xl p-6 modal-container">
+                <div class="flex justify-between items-center mb-6 border-b pb-4">
+                    <h3 class="text-2xl font-black text-emerald-600 uppercase tracking-tight flex items-center">
+                        <i data-lucide="badge-dollar-sign" class="w-6 h-6 mr-2"></i> Faturar Venda
+                    </h3>
+                    <button @click="showSellModal = false" class="p-2 hover:bg-slate-100 rounded-full transition"><i data-lucide="x" class="w-6 h-6"></i></button>
+                </div>
+
+                <form @submit.prevent="confirmSale" class="space-y-4">
+                    <div class="p-4 bg-blue-50 rounded-2xl border border-blue-100 mb-6">
+                        <p class="text-xs font-black text-blue-600 uppercase tracking-widest">Ativo sendo vendido</p>
+                        <p class="text-lg font-bold text-slate-900">{{ itemToSell?.title || itemToSell?.address }}</p>
+                        <p class="text-sm text-slate-500 italic">Investimento Total acumulado: {{ formatCurrency(calculateTotalItemCost(itemToSell)) }}</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div><label>Nome do Comprador</label><input v-model="sellData.buyerName" placeholder="Nome Completo" required></div>
+                        <div><label>CPF / CNPJ Comprador</label><input v-model="sellData.buyerDoc" placeholder="000.000.000-00"></div>
+                        <div><label>Valor de Venda Final (R$)</label><input type="number" step="0.01" v-model.number="sellData.salePrice" required></div>
+                        <div><label>Data da Venda</label><input type="date" v-model="sellData.saleDate" required></div>
+                        <div><label>Comissão Corretagem (R$)</label><input type="number" step="0.01" v-model.number="sellData.brokerFee"></div>
+                        <div><label>Forma de Pagamento</label>
+                            <select v-model="sellData.paymentMethod">
+                                <option value="À Vista">À Vista</option>
+                                <option value="Financiamento Bancário">Financiamento Bancário</option>
+                                <option value="Parcelamento Direto">Parcelamento Direto</option>
+                                <option value="Permuta">Permuta / Troca</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div><label>Observações do Fechamento</label><textarea v-model="sellData.saleNotes" rows="2" placeholder="Ex: Chaves entregues, contrato assinado..."></textarea></div>
+
+                    <div class="pt-6 flex gap-3">
+                        <button type="button" @click="showSellModal = false" class="flex-1 py-4 border-2 border-slate-200 rounded-2xl font-bold text-slate-500">CANCELAR</button>
+                        <button type="submit" class="flex-1 py-4 bg-emerald-600 text-white rounded-2xl font-black shadow-lg hover:bg-emerald-700 transition transform active:scale-95 uppercase tracking-widest">CONCLUIR VENDA</button>
                     </div>
                 </form>
             </div>
@@ -322,48 +378,40 @@
                 const loginError = ref("");
                 const activeTab = ref('dashboard');
                 const showModal = ref(false);
+                const showSellModal = ref(false);
+                const itemToSell = ref(null);
+                const sourceTabToSell = ref("");
                 const editingId = ref(null);
                 const searchTerm = ref('');
                 
                 const lands = ref([]);
                 const constructions = ref([]);
                 const properties = ref([]);
+                const sales = ref([]);
                 const trash = ref([]);
 
                 const formData = ref({ costs: [], basePrice: 0, progress: 0, landId: '', area: 0, topography: 'Plano' });
+                const sellData = ref({ buyerName: '', buyerDoc: '', salePrice: 0, saleDate: '', brokerFee: 0, paymentMethod: 'À Vista', saleNotes: '' });
                 const notification = ref({ show: false, message: '' });
 
-                // Auth Logic
                 onAuthStateChanged(auth, (u) => {
                     if (u) {
-                        user.value = {
-                            uid: u.uid,
-                            displayName: u.displayName,
-                            photoURL: u.photoURL,
-                            email: u.email
-                        };
+                        user.value = { uid: u.uid, displayName: u.displayName, photoURL: u.photoURL, email: u.email };
                         loadData(u.uid);
-                    } else {
-                        user.value = null;
-                    }
+                    } else user.value = null;
                     authLoading.value = false;
                     nextTick(() => lucide.createIcons());
                 });
 
                 const loginWithGoogle = async () => {
                     loginError.value = "";
-                    try {
-                        await signInWithPopup(auth, provider);
-                    } catch (error) {
-                        if (error.code === 'auth/popup-blocked') loginError.value = "Habilite popups no seu navegador.";
-                        else loginError.value = "Erro no login: " + error.message;
-                    }
+                    try { await signInWithPopup(auth, provider); } 
+                    catch (error) { loginError.value = "Erro no login: " + error.message; }
                 };
                 const logout = () => signOut(auth);
 
-                // Firestore Sync
                 const loadData = (uid) => {
-                    const collections = ['lands', 'constructions', 'properties', 'trash'];
+                    const collections = ['lands', 'constructions', 'properties', 'sales', 'trash'];
                     collections.forEach(colName => {
                         const q = collection(db, 'artifacts', appId, 'users', uid, colName);
                         onSnapshot(q, (snapshot) => {
@@ -371,6 +419,7 @@
                             if (colName === 'lands') lands.value = data;
                             if (colName === 'constructions') constructions.value = data;
                             if (colName === 'properties') properties.value = data;
+                            if (colName === 'sales') sales.value = data;
                             if (colName === 'trash') trash.value = data;
                         });
                     });
@@ -389,9 +438,8 @@
                     await deleteDoc(docRef);
                 };
 
-                // Computed
                 const activeTabLabel = computed(() => {
-                    const labels = { dashboard: 'Painel Geral', lands: 'Terrenos', constructions: 'Obras', properties: 'Imóveis', trash: 'Lixeira' };
+                    const labels = { dashboard: 'Painel Geral', lands: 'Terrenos', constructions: 'Obras', properties: 'Imóveis', sales: 'Vendas Realizadas', trash: 'Lixeira' };
                     return labels[activeTab.value];
                 });
 
@@ -399,11 +447,17 @@
                     let list = activeTab.value === 'lands' ? lands.value : 
                                activeTab.value === 'constructions' ? constructions.value : 
                                activeTab.value === 'properties' ? properties.value : 
+                               activeTab.value === 'sales' ? sales.value :
                                activeTab.value === 'trash' ? trash.value : [];
                     
                     if (!searchTerm.value) return list;
                     const term = searchTerm.value.toLowerCase();
-                    return list.filter(i => (i.address?.toLowerCase().includes(term) || i.title?.toLowerCase().includes(term) || i.contractor?.toLowerCase().includes(term)));
+                    return list.filter(i => (
+                        i.address?.toLowerCase().includes(term) || 
+                        i.title?.toLowerCase().includes(term) || 
+                        i.contractor?.toLowerCase().includes(term) || 
+                        i.buyerName?.toLowerCase().includes(term)
+                    ));
                 });
 
                 const calculateTotalItemCost = (item) => {
@@ -421,43 +475,82 @@
                         return acc + calculateTotalItemCost(i) + (l ? calculateTotalItemCost(l) : 0);
                     }, 0);
                     const propInv = properties.value.reduce((acc, i) => acc + calculateTotalItemCost(i), 0);
+                    
                     const investment = landInv + constrInv + propInv;
-                    const salesValue = properties.value.reduce((acc, i) => acc + (parseFloat(i.estimatedSaleValue) || 0), 0);
+                    const salesValue = properties.value.reduce((acc, i) => acc + (parseFloat(i.estimatedSaleValue) || 0), 0) + 
+                                     lands.value.reduce((acc, i) => landIdsInObras.has(i.id) ? acc : acc + (parseFloat(i.basePrice) * 1.2 || 0), 0);
+                    
+                    const realizedSales = sales.value.reduce((acc, i) => acc + (parseFloat(i.salePrice) || 0), 0);
+                    const realizedCost = sales.value.reduce((acc, i) => acc + calculateTotalItemCost(i), 0);
+                    const realizedProfit = realizedSales - realizedCost;
+
                     const profit = salesValue - investment;
                     const roi = investment > 0 ? ((profit / investment) * 100).toFixed(1) : 0;
-                    return { investment, salesValue, profit, roi };
+                    return { investment, salesValue, profit, roi, realizedSales, realizedProfit };
                 });
 
-                // UI Actions
                 const openCreateModal = () => {
-                    formData.value = { 
-                        costs: [], basePrice: 0, progress: 0, landId: '', area: 0, topography: 'Plano',
-                        finBank: '', finAmount: 0, finRate: 0, finTerms: 0, contactPhone: '', docLink: '', notes: ''
-                    };
+                    formData.value = { costs: [], basePrice: 0, progress: 0, landId: '', area: 0, topography: 'Plano', notes: '' };
                     editingId.value = null;
                     showModal.value = true;
                 };
                 const closeModal = () => showModal.value = false;
-                const addCostItem = () => {
-                    if (!formData.value.costs) formData.value.costs = [];
-                    formData.value.costs.push({ description: '', value: 0 });
-                };
+                const addCostItem = () => { if (!formData.value.costs) formData.value.costs = []; formData.value.costs.push({ description: '', value: 0 }); };
                 const removeCostItem = (index) => formData.value.costs.splice(index, 1);
 
                 const saveData = async () => {
-                    try {
-                        await saveDataToFirestore(formData.value, activeTab.value);
-                        showNotify('Dados salvos na nuvem!');
-                        closeModal();
-                    } catch (e) {
-                        showNotify('Erro ao salvar. Verifique permissões.');
-                    }
+                    await saveDataToFirestore(formData.value, activeTab.value);
+                    showNotify('Salvo na nuvem!');
+                    closeModal();
                 };
 
                 const editItem = (item) => {
                     formData.value = JSON.parse(JSON.stringify(item));
                     editingId.value = item.id;
                     showModal.value = true;
+                };
+
+                const openSellModal = (item) => {
+                    itemToSell.value = item;
+                    sourceTabToSell.value = activeTab.value;
+                    sellData.value = { 
+                        buyerName: '', 
+                        buyerDoc: '', 
+                        salePrice: item.estimatedSaleValue || item.basePrice * 1.2 || 0, 
+                        saleDate: new Date().toISOString().split('T')[0], 
+                        brokerFee: 0, 
+                        paymentMethod: 'À Vista', 
+                        saleNotes: '' 
+                    };
+                    showSellModal.value = true;
+                };
+
+                const confirmSale = async () => {
+                    if(!confirm('Deseja faturar esta venda agora?')) return;
+                    const soldItem = { 
+                        ...itemToSell.value, 
+                        ...sellData.value, 
+                        status: 'Vendido',
+                        originalTab: sourceTabToSell.value // Salva origem para o desfazer
+                    };
+                    await saveDataToFirestore(soldItem, 'sales');
+                    await deleteFromFirestore(itemToSell.value.id, sourceTabToSell.value);
+                    showSellModal.value = false;
+                    activeTab.value = 'sales';
+                    showNotify('Venda concluída com sucesso!');
+                };
+
+                const undoSale = async (soldItem) => {
+                    if(!confirm('Deseja desfazer esta venda e retornar o ativo para o inventário disponível?')) return;
+                    const { buyerName, buyerDoc, salePrice, saleDate, brokerFee, paymentMethod, saleNotes, ...originalItem } = soldItem;
+                    
+                    const targetTab = soldItem.originalTab || 'properties'; // Fallback se não tiver origem
+                    originalItem.status = 'Disponível';
+                    
+                    await saveDataToFirestore(originalItem, targetTab);
+                    await deleteFromFirestore(soldItem.id, 'sales');
+                    activeTab.value = targetTab;
+                    showNotify(`Venda desfeita! Ativo retornou para ${getTagName(targetTab)}.`);
                 };
 
                 const moveToTrash = async (item, sourceTab) => {
@@ -483,15 +576,10 @@
                     const cost = calculateTotalItemCost(obra);
                     const l = lands.value.find(land => land.id === obra.landId);
                     const total = cost + (l ? calculateTotalItemCost(l) : 0);
-                    const newProp = { 
-                        title: `Imóvel Pronto: ${obra.contractor}`, 
-                        basePrice: total, costs: [], estimatedSaleValue: total * 1.3, 
-                        originalObraData: obra, area: l?.area || 0 
-                    };
+                    const newProp = { title: `Imóvel Pronto: ${obra.contractor}`, basePrice: total, costs: [], estimatedSaleValue: total * 1.3, originalObraData: obra, area: l?.area || 0 };
                     await saveDataToFirestore(newProp, 'properties');
                     await deleteFromFirestore(obra.id, 'constructions');
                     activeTab.value = 'properties';
-                    showNotify('Obra concluída e convertida!');
                 };
 
                 const undoConversion = async (prop) => {
@@ -499,7 +587,6 @@
                     await saveDataToFirestore(prop.originalObraData, 'constructions');
                     await deleteFromFirestore(prop.id, 'properties');
                     activeTab.value = 'constructions';
-                    showNotify('Retornado para Obras.');
                 };
 
                 const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
@@ -507,41 +594,51 @@
                     const total = calculateTotalItemCost(item);
                     return item.area > 0 ? total / item.area : 0;
                 };
+                const formatDate = (dateStr) => dateStr ? new Date(dateStr).toLocaleDateString('pt-BR') : 'N/A';
                 const isDelayed = (item) => item.endDate && new Date(item.endDate) < new Date() && item.progress < 100;
                 const showNotify = (m) => {
                     notification.value = { show: true, message: m };
                     setTimeout(() => notification.value.show = false, 3000);
                 };
                 const getLinkedConstruction = (id) => constructions.value.find(c => c.landId === id);
-                const getTagName = (t) => ({ lands: 'Terreno', constructions: 'Obra', properties: 'Imóvel' }[t] || t);
+                const getTagName = (t) => ({ lands: 'Terreno', constructions: 'Obra', properties: 'Imóvel', sales: 'Venda' }[t] || t);
 
                 const exportToPDF = (item) => {
+                    const isSale = activeTab.value === 'sales' || item.status === 'Vendido';
                     const element = document.createElement('div');
                     element.innerHTML = `
                         <div style="padding:40px; font-family: sans-serif;">
-                            <h1 style="color: #2563eb;">Relatório: ${item.title || item.address}</h1>
-                            <p><strong>Última atualização:</strong> ${item.lastUpdate}</p>
-                            <hr/>
-                            <h3>Financeiro</h3>
-                            <p>Investimento Total: ${formatCurrency(calculateTotalItemCost(item))}</p>
-                            <p>Custo por M²: ${formatCurrency(calculateCostPerM2(item))}</p>
-                            ${item.finAmount > 0 ? `<p>Dívida de Financiamento: ${formatCurrency(item.finAmount)}</p>` : ''}
-                            <h3>Detalhes</h3>
-                            <p>Responsável: ${item.contractor || 'N/A'}</p>
-                            <p>Notas: ${item.notes || 'Sem observações'}</p>
+                            <h1 style="color: ${isSale ? '#059669' : '#2563eb'}; border-bottom: 2px solid #eee; padding-bottom: 10px;">
+                                ${isSale ? 'Recibo de Venda / Faturamento' : 'Relatório de Ativo Imobiliário'}
+                            </h1>
+                            <div style="margin-top: 20px;">
+                                <h2>${item.title || item.address}</h2>
+                                <p><strong>Investimento Total:</strong> ${formatCurrency(calculateTotalItemCost(item))}</p>
+                                ${isSale ? `
+                                    <div style="background: #f0fdf4; padding: 20px; border-radius: 12px; margin-top: 20px; border: 1px solid #bbf7d0;">
+                                        <h3 style="margin: 0; color: #166534;">Dados da Comercialização</h3>
+                                        <p><strong>Comprador:</strong> ${item.buyerName}</p>
+                                        <p><strong>CPF/CNPJ:</strong> ${item.buyerDoc || 'N/A'}</p>
+                                        <p><strong>Valor Final de Venda:</strong> ${formatCurrency(item.salePrice)}</p>
+                                        <p><strong>Resultado Líquido:</strong> ${formatCurrency(item.salePrice - calculateTotalItemCost(item))}</p>
+                                        <p><strong>Forma de Pagamento:</strong> ${item.paymentMethod}</p>
+                                        <p><strong>Data da Transação:</strong> ${formatDate(item.saleDate)}</p>
+                                    </div>
+                                ` : ''}
+                            </div>
                         </div>
                     `;
                     html2pdf().from(element).save();
                 };
 
                 onMounted(() => lucide.createIcons());
-                watch([activeTab, showModal, lands, constructions, properties, trash, user], () => nextTick(() => lucide.createIcons()), { deep: true });
+                watch([activeTab, showModal, lands, constructions, properties, sales, trash, user], () => nextTick(() => lucide.createIcons()), { deep: true });
 
                 return {
-                    user, authLoading, loginError, activeTab, activeTabLabel, showModal, formData, searchTerm, filteredList, totals, lands, trash, notification,
-                    loginWithGoogle, logout, openCreateModal, closeModal, addCostItem, removeCostItem, saveData, editItem, 
+                    user, authLoading, loginError, activeTab, activeTabLabel, showModal, showSellModal, itemToSell, sellData, formData, searchTerm, filteredList, totals, lands, sales, trash, notification,
+                    loginWithGoogle, logout, openCreateModal, closeModal, addCostItem, removeCostItem, saveData, editItem, openSellModal, confirmSale, undoSale,
                     moveToTrash, restoreFromTrash, permanentDelete, convertToProperty, undoConversion,
-                    formatCurrency, calculateTotalItemCost, calculateCostPerM2, isDelayed, getLinkedConstruction, getTagName, exportToPDF
+                    formatCurrency, calculateTotalItemCost, calculateCostPerM2, isDelayed, getLinkedConstruction, getTagName, exportToPDF, formatDate
                 };
             }
         }).mount('#app');
