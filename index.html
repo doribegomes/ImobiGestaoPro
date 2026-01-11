@@ -293,6 +293,8 @@
                 const properties = ref([]);
                 const trash = ref([]);
 
+                // CORREÇÃO: Definindo as refs que estavam faltando
+                const formData = ref({ costs: [], basePrice: 0, progress: 0, landId: '', area: 0, topography: 'Plano' });
                 const notification = ref({ show: false, message: '' });
 
                 // Auth Logic
