@@ -24,6 +24,10 @@
         .card-shadow { shadow-sm hover:shadow-xl transition-shadow duration-300; }
         .login-gradient { background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%); }
         .modal-container { max-width: calc(100% - 2rem); }
+        /* Scrollbar customizada para as caixas de custos/pagamentos */
+        .custom-scroll::-webkit-scrollbar { width: 4px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
     </style>
 </head>
 <body class="bg-blue-50 text-slate-900">
@@ -154,7 +158,9 @@
                                 <span :class="{'bg-emerald-600': activeTab === 'sales' || item.originalTab === 'sales', 'bg-blue-600': activeTab !== 'sales'}" class="text-white text-[10px] px-2 py-0.5 rounded-full font-black uppercase">
                                     {{ getTagName(activeTab === 'trash' ? item.originalTab : activeTab) }}
                                 </span>
-                                <span v-if="item.finAmount > 0" class="bg-indigo-600 text-white text-[10px] px-2 py-0.5 rounded-full font-black uppercase">Financiado</span>
+                                <span v-if="(item.basePrice - calculateBasePaid(item)) > 0" class="bg-amber-500 text-white text-[10px] px-2 py-0.5 rounded-full font-black uppercase shadow-sm">
+                                    Falta Pagar: {{ formatCurrency(item.basePrice - calculateBasePaid(item)) }}
+                                </span>
                                 <span v-if="activeTab === 'lands' && getLinkedConstruction(item.id)" class="bg-orange-500 text-white text-[10px] px-2 py-0.5 rounded-full font-black uppercase">Em Obra</span>
                                 <span v-if="isDelayed(item)" class="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full font-black uppercase">Atrasado</span>
                             </div>
@@ -172,8 +178,15 @@
                                 <a v-if="item.docLink" :href="item.docLink" target="_blank" class="text-blue-600 font-bold"><i data-lucide="external-link" class="w-4 h-4 mr-1 inline"></i>Docs</a>
                             </div>
 
-                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-5">
-                                <div class="bg-slate-50 p-2 rounded-lg"><span class="block text-[10px] font-black text-slate-400 uppercase">Investimento</span><span class="font-bold text-blue-600">{{ formatCurrency(calculateTotalItemCost(item)) }}</span></div>
+                            <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mt-5">
+                                <div class="bg-slate-50 p-2 rounded-lg" title="Soma do valor da compra/contrato + custos extras">
+                                    <span class="block text-[10px] font-black text-slate-400 uppercase">Custo Total</span>
+                                    <span class="font-bold text-blue-600">{{ formatCurrency(calculateTotalItemCost(item)) }}</span>
+                                </div>
+                                <div class="bg-emerald-50 border border-emerald-100 p-2 rounded-lg" title="Soma das parcelas pagas + custos extras">
+                                    <span class="block text-[10px] font-black text-emerald-700 uppercase">Já Pago (Real)</span>
+                                    <span class="font-bold text-emerald-700">{{ formatCurrency(calculateTotalOutofPocket(item)) }}</span>
+                                </div>
                                 <div class="bg-slate-50 p-2 rounded-lg">
                                     <span class="block text-[10px] font-black text-slate-400 uppercase">Resultado</span>
                                     <span :class="activeTab === 'sales' ? 'text-emerald-600' : 'text-slate-700'" class="font-bold">
@@ -222,18 +235,19 @@
 
         <!-- Modal Principal (Cadastro/Edição) -->
         <div v-if="showModal" class="fixed inset-0 z-[60] flex items-center justify-center p-2 md:p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
-            <div class="bg-white w-full max-w-5xl rounded-3xl shadow-2xl p-4 md:p-6 my-4 md:my-8 modal-container">
+            <div class="bg-white w-full max-w-6xl rounded-3xl shadow-2xl p-4 md:p-6 my-4 md:my-8 modal-container">
                 <div class="flex justify-between items-center mb-6 border-b pb-4">
                     <h3 class="text-xl md:text-2xl font-black text-slate-900">Gerenciar {{ activeTabLabel }}</h3>
                     <button @click="closeModal" class="p-2 hover:bg-slate-100 rounded-full transition"><i data-lucide="x" class="w-6 h-6"></i></button>
                 </div>
 
                 <form @submit.prevent="saveData" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Coluna da Esquerda: Dados Principais -->
                     <div class="lg:col-span-2 space-y-6">
                         <div v-if="activeTab === 'lands'" class="space-y-4">
                             <div><label>Endereço Completo</label><input v-model="formData.address" required></div>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div><label>Valor Compra (R$)</label><input type="number" step="0.01" v-model.number="formData.basePrice" required></div>
+                                <div><label>Valor Total Negociado (R$)</label><input type="number" step="0.01" v-model.number="formData.basePrice" required></div>
                                 <div><label>Área (m²)</label><input type="number" v-model.number="formData.area"></div>
                             </div>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -264,7 +278,7 @@
                         <div v-if="activeTab === 'properties'" class="space-y-4">
                             <div><label>Título do Imóvel</label><input v-model="formData.title" required></div>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div><label>Investimento Base (R$)</label><input type="number" step="0.01" v-model.number="formData.basePrice" required></div>
+                                <div><label>Valor Total Negociado (R$)</label><input type="number" step="0.01" v-model.number="formData.basePrice" required></div>
                                 <div><label>Área (m²)</label><input type="number" v-model.number="formData.area"></div>
                                 <div><label>Venda Estimada (R$)</label><input type="number" step="0.01" v-model.number="formData.estimatedSaleValue"></div>
                                 <div><label>Corretor Responsável</label><input v-model="formData.contractor"></div>
@@ -273,26 +287,84 @@
                         <div><label>Observações</label><textarea v-model="formData.notes" rows="2"></textarea></div>
                     </div>
 
-                    <div class="bg-blue-50 p-4 md:p-5 rounded-2xl flex flex-col h-full border border-blue-100">
-                        <div class="flex justify-between items-center mb-4">
-                            <h4 class="font-black text-blue-900 text-sm uppercase tracking-wider">Custos Extras</h4>
-                            <button type="button" @click="addCostItem" class="text-[10px] bg-blue-600 text-white px-2 py-1 rounded font-bold">+ ADICIONAR</button>
-                        </div>
-                        <div class="flex-1 space-y-3 overflow-y-auto max-h-[300px] lg:max-h-[500px] pr-1">
-                            <div v-for="(cost, index) in formData.costs" :key="index" class="flex gap-2 items-center bg-white p-2 rounded-xl">
-                                <input v-model="cost.description" class="flex-1 !border-none !mt-0 !bg-transparent text-xs" placeholder="Desc.">
-                                <input type="number" v-model.number="cost.value" class="w-16 md:w-20 !border-none !mt-0 !bg-transparent text-xs font-bold text-right text-blue-600">
-                                <button @click="removeCostItem(index)" type="button" class="text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    <!-- Coluna da Direita: Pagamentos e Custos -->
+                    <div class="lg:col-span-1 space-y-4 flex flex-col h-full min-h-[500px]">
+                        
+                        <!-- Bloco: Histórico de Pagamentos -->
+                        <div class="bg-emerald-50 p-4 rounded-2xl flex flex-col flex-1 border border-emerald-100 shadow-inner">
+                            <div class="flex justify-between items-center mb-3 pb-2 border-b border-emerald-200">
+                                <div>
+                                    <h4 class="font-black text-emerald-900 text-sm uppercase tracking-wider">Pagamentos da Compra</h4>
+                                    <p class="text-[9px] text-emerald-700 uppercase mt-0.5">Entrada e Parcelas</p>
+                                </div>
+                                <button type="button" @click="addPaymentItem" class="text-[10px] bg-emerald-600 hover:bg-emerald-700 transition text-white px-2 py-1.5 rounded font-bold flex items-center"><i data-lucide="plus" class="w-3 h-3 mr-1"></i> ADD</button>
+                            </div>
+                            
+                            <div class="flex-1 space-y-2 overflow-y-auto pr-1 custom-scroll">
+                                <div v-if="!formData.payments || formData.payments.length === 0" class="text-center py-4 text-emerald-600/70 text-xs italic">
+                                    Nenhum pagamento registrado.<br>Se deixado em branco, o sistema considera o valor 100% quitado.
+                                </div>
+                                <div v-for="(pay, index) in formData.payments" :key="'p'+index" class="flex flex-wrap gap-1 items-center bg-white p-2 rounded-xl shadow-sm border border-emerald-50">
+                                    <input v-model="pay.description" class="flex-1 min-w-[100px] !border-none !p-1 !mt-0 !bg-transparent text-xs focus:ring-0 placeholder-slate-400 font-medium" placeholder="Ex: Entrada">
+                                    <input type="date" v-model="pay.date" class="w-24 !border-none !p-1 !mt-0 !bg-transparent text-[10px] text-slate-500 focus:ring-0">
+                                    <div class="w-full flex justify-end items-center mt-1 pt-1 border-t border-slate-50">
+                                        <span class="text-xs text-slate-400 font-bold mr-1">R$</span>
+                                        <input type="number" step="0.01" v-model.number="pay.value" class="w-24 !border-none !p-1 !mt-0 !bg-transparent text-sm font-black text-right text-emerald-600 focus:ring-0" placeholder="0.00">
+                                        <button @click="removePaymentItem(index)" type="button" class="text-red-400 hover:text-red-600 ml-2 p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-3 pt-3 border-t border-emerald-200 space-y-1.5">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-[10px] font-black text-emerald-800 uppercase">Valor Total:</span>
+                                    <span class="text-xs font-bold text-slate-700">{{ formatCurrency(formData.basePrice) }}</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-[10px] font-black text-emerald-800 uppercase">Já Pago:</span>
+                                    <span class="text-sm font-black text-emerald-700">{{ formatCurrency(calculateBasePaid(formData)) }}</span>
+                                </div>
+                                <div class="flex justify-between items-center bg-white p-1.5 rounded-lg border border-red-100 mt-1" v-if="(formData.basePrice - calculateBasePaid(formData)) > 0.01">
+                                    <span class="text-[10px] font-black text-red-600 uppercase">Falta Pagar:</span>
+                                    <span class="text-xs font-black text-red-600">{{ formatCurrency(formData.basePrice - calculateBasePaid(formData)) }}</span>
+                                </div>
+                                <div class="flex justify-between items-center bg-emerald-600 p-1.5 rounded-lg mt-1" v-else-if="formData.payments && formData.payments.length > 0 && (formData.basePrice - calculateBasePaid(formData)) <= 0.01">
+                                    <span class="text-[10px] font-black text-white uppercase"><i data-lucide="check-circle" class="w-3 h-3 inline mr-1"></i> Status</span>
+                                    <span class="text-xs font-black text-white">100% QUITADO</span>
+                                </div>
                             </div>
                         </div>
-                        <div class="mt-4 pt-4 border-t border-blue-200">
-                            <p class="flex justify-between text-blue-800 text-sm font-black uppercase"><span>TOTAL:</span> <span>{{ formatCurrency(calculateTotalItemCost(formData)) }}</span></p>
+
+                        <!-- Bloco: Custos Extras -->
+                        <div class="bg-blue-50 p-4 rounded-2xl flex flex-col flex-1 border border-blue-100 shadow-inner">
+                            <div class="flex justify-between items-center mb-3 pb-2 border-b border-blue-200">
+                                <div>
+                                    <h4 class="font-black text-blue-900 text-sm uppercase tracking-wider">Custos Extras</h4>
+                                    <p class="text-[9px] text-blue-700 uppercase mt-0.5">Reformas, ITBI, Taxas</p>
+                                </div>
+                                <button type="button" @click="addCostItem" class="text-[10px] bg-blue-600 hover:bg-blue-700 transition text-white px-2 py-1.5 rounded font-bold flex items-center"><i data-lucide="plus" class="w-3 h-3 mr-1"></i> ADD</button>
+                            </div>
+                            
+                            <div class="flex-1 space-y-2 overflow-y-auto pr-1 custom-scroll">
+                                <div v-if="!formData.costs || formData.costs.length === 0" class="text-center py-4 text-blue-600/70 text-xs italic">
+                                    Nenhum custo extra adicionado.
+                                </div>
+                                <div v-for="(cost, index) in formData.costs" :key="'c'+index" class="flex gap-2 items-center bg-white p-2 rounded-xl shadow-sm border border-blue-50">
+                                    <input v-model="cost.description" class="flex-1 !border-none !p-1 !mt-0 !bg-transparent text-xs font-medium" placeholder="Ex: Reforma telhado">
+                                    <input type="number" v-model.number="cost.value" class="w-20 md:w-24 !border-none !p-1 !mt-0 !bg-transparent text-sm font-black text-right text-blue-600" placeholder="0.00">
+                                    <button @click="removeCostItem(index)" type="button" class="text-red-400 hover:text-red-600 p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-3 pt-3 border-t border-blue-200">
+                                <p class="flex justify-between text-blue-800 text-sm font-black uppercase"><span>TOTAL EXTRAS:</span> <span>{{ formatCurrency(formData.costs ? formData.costs.reduce((acc, c) => acc + (parseFloat(c.value) || 0), 0) : 0) }}</span></p>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="lg:col-span-3 pt-4 flex gap-3">
-                        <button type="button" @click="closeModal" class="flex-1 py-4 border-2 border-slate-200 rounded-2xl font-bold">CANCELAR</button>
-                        <button type="submit" class="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black">SALVAR</button>
+                    <div class="lg:col-span-3 pt-4 flex gap-3 border-t border-slate-100 mt-2">
+                        <button type="button" @click="closeModal" class="flex-1 py-4 border-2 border-slate-200 hover:bg-slate-50 transition rounded-2xl font-bold text-slate-600">CANCELAR</button>
+                        <button type="submit" class="flex-1 py-4 bg-blue-600 hover:bg-blue-700 transition text-white rounded-2xl font-black shadow-lg">SALVAR INFORMAÇÕES</button>
                     </div>
                 </form>
             </div>
@@ -312,7 +384,8 @@
                     <div class="p-4 bg-blue-50 rounded-2xl border border-blue-100 mb-6">
                         <p class="text-xs font-black text-blue-600 uppercase tracking-widest">Ativo sendo vendido</p>
                         <p class="text-lg font-bold text-slate-900">{{ itemToSell?.title || itemToSell?.address }}</p>
-                        <p class="text-sm text-slate-500 italic">Investimento Total acumulado: {{ formatCurrency(calculateTotalItemCost(itemToSell)) }}</p>
+                        <p class="text-sm text-slate-500 italic">Custo Total Acumulado: {{ formatCurrency(calculateTotalItemCost(itemToSell)) }}</p>
+                        <p class="text-sm text-emerald-600 font-bold" v-if="(itemToSell?.basePrice - calculateBasePaid(itemToSell)) > 0">Atenção: Existe um saldo devedor na aquisição de {{ formatCurrency(itemToSell.basePrice - calculateBasePaid(itemToSell)) }}</p>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -390,7 +463,7 @@
                 const sales = ref([]);
                 const trash = ref([]);
 
-                const formData = ref({ costs: [], basePrice: 0, progress: 0, landId: '', area: 0, topography: 'Plano' });
+                const formData = ref({ payments: [], costs: [], basePrice: 0, progress: 0, landId: '', area: 0, topography: 'Plano' });
                 const sellData = ref({ buyerName: '', buyerDoc: '', salePrice: 0, saleDate: '', brokerFee: 0, paymentMethod: 'À Vista', saleNotes: '' });
                 const notification = ref({ show: false, message: '' });
 
@@ -460,11 +533,29 @@
                     ));
                 });
 
+                // NOVO CÁLCULO: Calcula o que já foi pago da compra principal (Entrada/Parcelas)
+                // Se o array payments estiver vazio/inexistente, assume que 100% foi pago (Retrocompatibilidade)
+                const calculateBasePaid = (item) => {
+                    if (!item) return 0;
+                    if (item.payments && item.payments.length > 0) {
+                        return item.payments.reduce((acc, p) => acc + (parseFloat(p.value) || 0), 0);
+                    }
+                    return parseFloat(item.basePrice) || 0;
+                };
+
+                // Custo Total: Valor de Compra Contratado + Custos Extras
                 const calculateTotalItemCost = (item) => {
                     if (!item) return 0;
                     let total = parseFloat(item.basePrice) || 0;
                     if (item.costs) total += item.costs.reduce((acc, c) => acc + (parseFloat(c.value) || 0), 0);
                     return total;
+                };
+
+                // Gasto Real Desembolsado: O que já pagou de entrada/parcelas + Custos Extras
+                const calculateTotalOutofPocket = (item) => {
+                    if (!item) return 0;
+                    let extraCosts = item.costs ? item.costs.reduce((acc, c) => acc + (parseFloat(c.value) || 0), 0) : 0;
+                    return calculateBasePaid(item) + extraCosts;
                 };
 
                 const totals = computed(() => {
@@ -490,12 +581,25 @@
                 });
 
                 const openCreateModal = () => {
-                    formData.value = { costs: [], basePrice: 0, progress: 0, landId: '', area: 0, topography: 'Plano', notes: '' };
+                    formData.value = { payments: [], costs: [], basePrice: 0, progress: 0, landId: '', area: 0, topography: 'Plano', notes: '' };
                     editingId.value = null;
                     showModal.value = true;
+                    nextTick(() => lucide.createIcons());
                 };
                 const closeModal = () => showModal.value = false;
-                const addCostItem = () => { if (!formData.value.costs) formData.value.costs = []; formData.value.costs.push({ description: '', value: 0 }); };
+                
+                const addPaymentItem = () => { 
+                    if (!formData.value.payments) formData.value.payments = []; 
+                    formData.value.payments.push({ description: '', value: 0, date: new Date().toISOString().split('T')[0] }); 
+                    nextTick(() => lucide.createIcons());
+                };
+                const removePaymentItem = (index) => formData.value.payments.splice(index, 1);
+
+                const addCostItem = () => { 
+                    if (!formData.value.costs) formData.value.costs = []; 
+                    formData.value.costs.push({ description: '', value: 0 }); 
+                    nextTick(() => lucide.createIcons());
+                };
                 const removeCostItem = (index) => formData.value.costs.splice(index, 1);
 
                 const saveData = async () => {
@@ -506,8 +610,11 @@
 
                 const editItem = (item) => {
                     formData.value = JSON.parse(JSON.stringify(item));
+                    if (!formData.value.payments) formData.value.payments = [];
+                    if (!formData.value.costs) formData.value.costs = [];
                     editingId.value = item.id;
                     showModal.value = true;
+                    nextTick(() => lucide.createIcons());
                 };
 
                 const openSellModal = (item) => {
@@ -523,6 +630,7 @@
                         saleNotes: '' 
                     };
                     showSellModal.value = true;
+                    nextTick(() => lucide.createIcons());
                 };
 
                 const confirmSale = async () => {
@@ -576,7 +684,8 @@
                     const cost = calculateTotalItemCost(obra);
                     const l = lands.value.find(land => land.id === obra.landId);
                     const total = cost + (l ? calculateTotalItemCost(l) : 0);
-                    const newProp = { title: `Imóvel Pronto: ${obra.contractor}`, basePrice: total, costs: [], estimatedSaleValue: total * 1.3, originalObraData: obra, area: l?.area || 0 };
+                    // O histórico de pagamentos vai migrar junto
+                    const newProp = { title: `Imóvel Pronto: ${obra.contractor}`, basePrice: total, costs: [], payments: [], estimatedSaleValue: total * 1.3, originalObraData: obra, area: l?.area || 0 };
                     await saveDataToFirestore(newProp, 'properties');
                     await deleteFromFirestore(obra.id, 'constructions');
                     activeTab.value = 'properties';
@@ -605,6 +714,30 @@
 
                 const exportToPDF = (item) => {
                     const isSale = activeTab.value === 'sales' || item.status === 'Vendido';
+                    
+                    let paymentsHtml = '';
+                    if (item.payments && item.payments.length > 0) {
+                        const paidTotal = calculateBasePaid(item);
+                        const owed = Math.max(0, item.basePrice - paidTotal);
+                        paymentsHtml = `
+                            <div style="background: #f0fdf4; padding: 15px; border-radius: 8px; margin-top: 15px; border: 1px solid #d1fae5;">
+                                <h3 style="margin: 0 0 10px 0; color: #047857; font-size: 14px;">Histórico de Pagamentos (Aquisição)</h3>
+                                <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                                    ${item.payments.map(p => `
+                                        <tr>
+                                            <td style="border-bottom: 1px solid #e5e7eb; padding: 6px 0;">${p.description} ${p.date ? `<span style="color:#6b7280; font-size: 10px;">(${formatDate(p.date)})</span>` : ''}</td>
+                                            <td style="border-bottom: 1px solid #e5e7eb; padding: 6px 0; text-align: right; font-weight: bold; color: #059669;">${formatCurrency(p.value)}</td>
+                                        </tr>
+                                    `).join('')}
+                                </table>
+                                <div style="margin-top: 10px; font-size: 12px; display: flex; justify-content: space-between;">
+                                    <span><strong>Valor Contratado:</strong> ${formatCurrency(item.basePrice)}</span>
+                                    ${owed > 0 ? `<span style="color: #dc2626;"><strong>Saldo Devedor:</strong> ${formatCurrency(owed)}</span>` : '<span style="color: #059669;"><strong>QUITADO</strong></span>'}
+                                </div>
+                            </div>
+                        `;
+                    }
+
                     const element = document.createElement('div');
                     element.innerHTML = `
                         <div style="padding:40px; font-family: sans-serif;">
@@ -613,14 +746,19 @@
                             </h1>
                             <div style="margin-top: 20px;">
                                 <h2>${item.title || item.address}</h2>
-                                <p><strong>Investimento Total:</strong> ${formatCurrency(calculateTotalItemCost(item))}</p>
+                                <p style="margin: 5px 0;"><strong>Valor Negociado (Compra):</strong> ${formatCurrency(item.basePrice)}</p>
+                                <p style="margin: 5px 0;"><strong>Valor Total Já Desembolsado:</strong> ${formatCurrency(calculateTotalOutofPocket(item))} <span style="font-size: 11px; color: #6b7280;">(Parcelas pagas + Custos extras)</span></p>
+                                <p style="margin: 5px 0;"><strong>Custo Total (Ativo + Custos):</strong> ${formatCurrency(calculateTotalItemCost(item))}</p>
+                                
+                                ${paymentsHtml}
+
                                 ${isSale ? `
-                                    <div style="background: #f0fdf4; padding: 20px; border-radius: 12px; margin-top: 20px; border: 1px solid #bbf7d0;">
-                                        <h3 style="margin: 0; color: #166534;">Dados da Comercialização</h3>
+                                    <div style="background: #f8fafc; padding: 20px; border-radius: 12px; margin-top: 20px; border: 1px solid #e2e8f0;">
+                                        <h3 style="margin: 0; color: #0f172a;">Dados da Comercialização</h3>
                                         <p><strong>Comprador:</strong> ${item.buyerName}</p>
                                         <p><strong>CPF/CNPJ:</strong> ${item.buyerDoc || 'N/A'}</p>
                                         <p><strong>Valor Final de Venda:</strong> ${formatCurrency(item.salePrice)}</p>
-                                        <p><strong>Resultado Líquido:</strong> ${formatCurrency(item.salePrice - calculateTotalItemCost(item))}</p>
+                                        <p><strong>Resultado Líquido do Projeto:</strong> ${formatCurrency(item.salePrice - calculateTotalItemCost(item))}</p>
                                         <p><strong>Forma de Pagamento:</strong> ${item.paymentMethod}</p>
                                         <p><strong>Data da Transação:</strong> ${formatDate(item.saleDate)}</p>
                                     </div>
@@ -632,13 +770,13 @@
                 };
 
                 onMounted(() => lucide.createIcons());
-                watch([activeTab, showModal, lands, constructions, properties, sales, trash, user], () => nextTick(() => lucide.createIcons()), { deep: true });
+                watch([activeTab, showModal, showSellModal, lands, constructions, properties, sales, trash, user], () => nextTick(() => lucide.createIcons()), { deep: true });
 
                 return {
                     user, authLoading, loginError, activeTab, activeTabLabel, showModal, showSellModal, itemToSell, sellData, formData, searchTerm, filteredList, totals, lands, sales, trash, notification,
-                    loginWithGoogle, logout, openCreateModal, closeModal, addCostItem, removeCostItem, saveData, editItem, openSellModal, confirmSale, undoSale,
+                    loginWithGoogle, logout, openCreateModal, closeModal, addPaymentItem, removePaymentItem, addCostItem, removeCostItem, saveData, editItem, openSellModal, confirmSale, undoSale,
                     moveToTrash, restoreFromTrash, permanentDelete, convertToProperty, undoConversion,
-                    formatCurrency, calculateTotalItemCost, calculateCostPerM2, isDelayed, getLinkedConstruction, getTagName, exportToPDF, formatDate
+                    formatCurrency, calculateBasePaid, calculateTotalItemCost, calculateTotalOutofPocket, calculateCostPerM2, isDelayed, getLinkedConstruction, getTagName, exportToPDF, formatDate
                 };
             }
         }).mount('#app');
